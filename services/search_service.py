@@ -29,6 +29,12 @@ class SearchService:
         # Refresh để cookie có hiệu lực
         self.browser.refresh_page()
         time.sleep(2)
+
+
+        self.browser.navigate_to(Config.BASE_URL)
+        time.sleep(2)
+        self.browser.refresh_page()
+        time.sleep(2)
     
     def search_keyword(self, keyword: str):
         """Tìm kiếm với keyword"""
