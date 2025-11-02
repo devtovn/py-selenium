@@ -2,6 +2,9 @@
 from common.element_finder import ElementFinder
 from common.element_actions import ElementActions
 from common.browser_actions import BrowserActions
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from config import Config
 import time
 
@@ -13,6 +16,7 @@ class SearchService:
         self.finder = ElementFinder(driver, Config.DEFAULT_TIMEOUT)
         self.actions = ElementActions(driver)
         self.browser = BrowserActions(driver)
+        self.wait = WebDriverWait(driver, 10)
     
     def setup_authentication(self):
         """Setup cookie xác thực"""
@@ -26,19 +30,33 @@ class SearchService:
             Config.AUTH_COOKIE_VALUE
         )
         
-        # Refresh để cookie có hiệu lực
-        self.browser.refresh_page()
-        time.sleep(2)
+        # # Refresh để cookie có hiệu lực
+        # self.browser.refresh_page()
+        # time.sleep(2)
 
 
         self.browser.navigate_to(Config.BASE_URL)
         time.sleep(2)
-        self.browser.refresh_page()
-        time.sleep(2)
+        # self.browser.refresh_page()
+        # time.sleep(2)
+        
     
     def search_keyword(self, keyword: str):
         """Tìm kiếm với keyword"""
         print(f"\n=== Bước 1: Tìm kiếm keyword '{keyword}' ===")
+        try:
+            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".modal-dialog")))
+            print("✅ Trang chính đã load sau login.")
+        except Exception:
+            print("⚠️ Không tìm thấy phần tử trang chính sau login, vẫn tiếp tục...")
+
+
+        # Kiêm tra nếu bị overlay modal
+        prevent_btn = self.finder.find_clickable_by_id("btnNO")
+        if not prevent_btn:
+            raise Exception("Không tìm thấy button đóng tìm kiếm")
+        
+        self.actions.click_element(prevent_btn, wait_after=3)
         
         # Tìm textbox và nhập keyword
         textbox = self.finder.find_by_id(Config.SEARCH_TEXTBOX_ID)
