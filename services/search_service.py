@@ -104,63 +104,148 @@ class SearchService:
         except FileNotFoundError:
             print(f"Không tìm thấy file: {file_path}")
     
+    # def open_search_result(self):
+    #     """Mở kết quả tìm kiếm đầu tiên"""
+    #     print("\n=== Bước 2: Mở kết quả tìm kiếm ===")
+        
+    #     # # Tìm link kết quả
+    #     # result_link = self.finder.find_clickable_by_id(Config.RESULT_LINK_ID)
+    #     # if not result_link:
+    #     #     raise Exception("Không tìm thấy kết quả tìm kiếm")
+        
+    #     # # Click để mở tab mới
+    #     # self.actions.click_element(result_link, wait_after=2)
+        
+    #     # # Chuyển sang tab mới
+    #     # # self.browser.switch_to_new_tab()
+    #     # # self.browser.wait_for_page_load()
+        
+    #     # print("Đã mở kết quả tìm kiếm trong tab mới")
+
+
+        
+    #     try:
+    #         # Chờ có ít nhất 1 link kết quả khả dụng
+    #         links = WebDriverWait(self.driver, 10).until(
+    #             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href^='Default.aspx#StaffResult/']"))
+    #         )
+
+    #         if not links:
+    #             raise Exception("Không tìm thấy kết quả tìm kiếm")
+
+    #         # Click link đầu tiên
+    #         first_link = links[0]
+    #         print(f"Đang click vào link đầu tiên: {first_link.get_attribute('href')}")
+    #         self.actions.click_element(first_link, wait_after=2)
+
+    #         self.browser.switch_to_new_tab()
+    #         # self.browser.wait_for_page_load()
+
+    #         print("Đã mở kết quả tìm kiếm trong tab mới")
+
+    #     except Exception as e:
+    #         print(f"Lỗi khi mở kết quả tìm kiếm: {e}")
+
     def open_search_result(self):
-        """Mở kết quả tìm kiếm đầu tiên"""
-        print("\n=== Bước 2: Mở kết quả tìm kiếm ===")
-        
-        # # Tìm link kết quả
-        # result_link = self.finder.find_clickable_by_id(Config.RESULT_LINK_ID)
-        # if not result_link:
-        #     raise Exception("Không tìm thấy kết quả tìm kiếm")
-        
-        # # Click để mở tab mới
-        # self.actions.click_element(result_link, wait_after=2)
-        
-        # # Chuyển sang tab mới
-        # # self.browser.switch_to_new_tab()
-        # # self.browser.wait_for_page_load()
-        
-        # print("Đã mở kết quả tìm kiếm trong tab mới")
-
-
-        
+        """Mở từng kết quả tìm kiếm và xử lý trong tab mới"""
+        print("\n=== Bước 2: Mở từng kết quả tìm kiếm ===")
+        self.actionCloseAlert()
         try:
-            # Chờ có ít nhất 1 link kết quả khả dụng
+            selector = f"a[href^='{Config.RESULT_LINK_ID}']"
             links = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href^='Default.aspx#StaffResult/']"))
+                EC.presence_of_all_elements_located(
+                    (By.CSS_SELECTOR, selector)
+                )
             )
 
             if not links:
                 raise Exception("Không tìm thấy kết quả tìm kiếm")
 
-            # Click link đầu tiên
-            first_link = links[0]
-            print(f"Đang click vào link đầu tiên: {first_link.get_attribute('href')}")
-            self.actions.click_element(first_link, wait_after=2)
+            print(f"Tìm thấy {len(links)} kết quả. Bắt đầu xử lý...")
 
-            self.browser.switch_to_new_tab()
-            # self.browser.wait_for_page_load()
+            # Lấy tất cả href (vì khi load lại trang, element cũ có thể bị mất)
+            link_hrefs = [link.get_attribute("href") for link in links]
 
-            print("Đã mở kết quả tìm kiếm trong tab mới")
+            for index, href in enumerate(link_hrefs):
+                print(f"\n [{index+1}/{len(link_hrefs)}] Đang mở link: {href}")
+
+                # Mở tab mới
+                self.driver.execute_script("window.open(arguments[0], '_blank');", href)
+
+                # Chuyển sang tab mới
+                self.driver.switch_to.window(self.driver.window_handles[-1])
+                print("Đã chuyển sang tab kết quả thi")
+
+                try:
+                    # Gọi hàm download file trong tab mới
+                    self.download_file()
+                    self.actionCloseAlert()
+                except Exception as e:
+                    print(f"Lỗi khi tải file ở link này: {e}")
+
+                # Đóng tab kết quả
+                self.driver.close()
+                print("Đã đóng tab chi tiết")
+
+                # Quay lại tab chính
+                self.driver.switch_to.window(self.driver.window_handles[0])
+                print("Quay lại danh sách để xử lý link tiếp theo")
+
+                # Đợi trang ổn định một chút
+                time.sleep(2)
+
+            print("\n Hoàn tất xử lý tất cả kết quả tìm kiếm.")
 
         except Exception as e:
             print(f"Lỗi khi mở kết quả tìm kiếm: {e}")
+
     
     def download_file(self):
-        """Tải file PDF"""
-        print("\n=== Bước 3: Tải file PDF ===")
-        
-        # Đợi page load
-        time.sleep(Config.DOWNLOAD_WAIT_TIME)
-        
-        # Tìm link download
-        # download_link = self.finder.find_clickable_by_id(Config.DOWNLOAD_LINK_ID)
-        # if not download_link:
-        #     raise Exception("Không tìm thấy link download")
-        
-        # # Click để download
-        # self.actions.click_element(download_link, wait_after=2)
+        """Tải tất cả file trong trang chi tiết"""
+        print("\n=== Bước 3: Tải tất cả file trong trang chi tiết ===")
 
+        # Đợi trang load
+        time.sleep(Config.DOWNLOAD_WAIT_TIME)
+
+        # Đóng popup / overlay nếu có
+        self.actionCloseAlert()
+
+        try:
+            selector = f"a[href^='{Config.DOWNLOAD_LINK_ID}']"
+            links = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located(
+                    (By.CSS_SELECTOR, selector)
+                )
+            )
+
+            if not links:
+                raise Exception("Không tìm thấy link download")
+
+            print(f"Tìm thấy {len(links)} link file cần tải.")
+
+            # Duyệt qua từng link và click
+            for index, link in enumerate(links, start=1):
+                href = link.get_attribute("href")
+                print(f"[{index}/{len(links)}] Đang click tải file: {href}")
+                try:
+                    self.actions.click_element(link, wait_after=2)
+                    print("Đã click tải file thành công.")
+                except Exception as e:
+                    print(f"Lỗi khi click link: {e}")
+                
+                # Đợi 1 chút giữa các lần click (tránh lỗi browser hoặc mạng)
+                time.sleep(1)
+
+            print("Hoàn tất tải tất cả file trong trang.")
+
+        except Exception as e:
+            print(f"Lỗi khi tải file: {e}")
+
+        # Nghỉ thêm 2s để đảm bảo download hoàn tất
+        time.sleep(2)
+
+    
+    def actionCloseAlert(self):
         # Kiêm tra nếu bị overlay modal
         prevent_btn = self.finder.find_clickable_by_id("btnNO")
         if prevent_btn:
@@ -168,20 +253,50 @@ class SearchService:
             self.actions.click_element(prevent_btn, wait_after=3)
         else:
             print("Không tìm thấy nút btnNO — bỏ qua và tiếp tục.")
-        # Chờ có ít nhất 1 link kết quả khả dụng
-        links = WebDriverWait(self.driver, 10).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href^='/Portal.IU.CMS/Upload/files/']"))
-        )
+    
+    # def download_file(self):
+    #     """Tải file hoặc mở kết quả thi"""
+    #     print("\n=== Bước 3: Mở link kết quả thi ===")
 
-        if not links:
-            raise Exception("Không tìm thấy link download")
+    #     # Đợi trang ổn định
+    #     time.sleep(Config.DOWNLOAD_WAIT_TIME)
 
-       # Click để download
-        download_link = links[0]
-        print(f"Đang click vào link download: {download_link.get_attribute('href')}")
-        self.actions.click_element(download_link, wait_after=2)
-        print("Đã download file")
-        time.sleep(30)
+    #     # Đóng overlay nếu có
+    #     prevent_btn = self.finder.find_clickable_by_id("btnNO")
+    #     if prevent_btn:
+    #         print("Tìm thấy nút đóng overlay (btnNO) — đang click...")
+    #         self.actions.click_element(prevent_btn, wait_after=3)
+    #     else:
+    #         print("Không tìm thấy nút btnNO — bỏ qua và tiếp tục.")
+
+    #     # Chờ bảng kết quả load xong
+    #     table_rows = WebDriverWait(self.driver, 10).until(
+    #         EC.presence_of_all_elements_located((By.CSS_SELECTOR, "table tr"))
+    #     )
+    #     print(f"Tìm thấy {len(table_rows)} hàng trong bảng, đang kiểm tra link...")
+
+    #     target_links = []
+
+    #     # Duyệt từng hàng để tìm <a> có href bắt đầu bằng "Default.aspx#StaffResult/"
+    #     for row in table_rows:
+    #         links_in_row = row.find_elements(By.CSS_SELECTOR, "a[href^='Default.aspx#StaffResult/']")
+    #         if links_in_row:
+    #             href = links_in_row[0].get_attribute("href")
+    #             print(f" Tìm thấy link trong hàng: {href}")
+    #             target_links.append(links_in_row[0])
+
+    #     if not target_links:
+    #         raise Exception("Không tìm thấy link nào chứa 'Default.aspx#StaffResult/'")
+
+    #     # Click từng link (hoặc chỉ click link đầu tiên)
+    #     for link in target_links:
+    #         href = link.get_attribute("href")
+    #         print(f"Đang click vào link: {href}")
+    #         self.actions.click_element(link, wait_after=3)
+
+    #     print(" Đã click tất cả link kết quả trong bảng.")
+
+
     
     def execute_workflow(self, keyword: str):
         """Thực hiện toàn bộ workflow"""
@@ -189,15 +304,15 @@ class SearchService:
             # Setup authentication
             self.setup_authentication()
             
-            # Tìm kiếm
-            self.search_from_file("keywords.txt")
-            # self.search_keyword(keyword)
+            # # Tìm kiếm
+            self.search_from_file(Config.FILE_SEARCH)
+            # # self.search_keyword(keyword)
             
-            # Mở kết quả
+            # # Mở kết quả
             self.open_search_result()
             
             # Download file
-            self.download_file()
+            # self.download_file()
             
             print("\n✓ Hoàn thành workflow!")
             return True
